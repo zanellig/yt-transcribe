@@ -6,9 +6,9 @@
  *   bun run index.ts <youtube-url> [options]
  *
  * Examples:
- *   bun run index.ts https://www.youtube.com/watch?v=abc123
- *   bun run index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format text
- *   bun run index.ts https://www.youtube.com/watch?v=abc123 --no-chunking
+ *   bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ
+ *   bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format text
+ *   bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --no-chunking
  */
 
 import { $ } from "bun";
@@ -151,16 +151,16 @@ function printHelp(): void {
 
 \x1b[1mEXAMPLES:\x1b[0m
   # Basic usage with defaults (diarized transcription)
-  bun run index.ts https://www.youtube.com/watch?v=abc123
+  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
   # Use whisper-1 with plain text output
-  bun run index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format text
+  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format text
 
   # Generate SRT subtitles
-  bun run index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format srt
+  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format srt
 
   # Custom VAD settings for noisy audio
-  bun run index.ts https://www.youtube.com/watch?v=abc123 --vad-threshold 0.7
+  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --vad-threshold 0.7
 
 \x1b[1mENVIRONMENT:\x1b[0m
   OPENAI_API_KEY    Required. Your OpenAI API key.
