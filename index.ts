@@ -21,10 +21,17 @@ import { join, basename, dirname } from "path";
 // ============================================================================
 
 const TMP_DIR = join(dirname(import.meta.path), "tmp");
+const OUT_DIR = join(dirname(import.meta.path), "out");
 
 function ensureTmpDir(): void {
   if (!existsSync(TMP_DIR)) {
     mkdirSync(TMP_DIR, { recursive: true });
+  }
+}
+
+function ensureOutDir(): void {
+  if (!existsSync(OUT_DIR)) {
+    mkdirSync(OUT_DIR, { recursive: true });
   }
 }
 
@@ -449,9 +456,11 @@ async function main(): Promise<void> {
     // Step 3: Transcribe
     const result = await transcribe(audioPath, options);
 
-    // Step 4: Save output
+    // Step 4: Save output to out directory
+    ensureOutDir();
     const outputExt = getOutputExtension(format);
-    const defaultOutputPath = videoPath.replace(/\.[^.]+$/, outputExt);
+    const videoBasename = basename(videoPath, ".webm");
+    const defaultOutputPath = join(OUT_DIR, `${videoBasename}${outputExt}`);
     const outputPath = values.output || defaultOutputPath;
 
     await saveOutput(result, outputPath, format);
