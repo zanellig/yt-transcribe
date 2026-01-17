@@ -13,8 +13,20 @@
 
 import { $ } from "bun";
 import { parseArgs } from "util";
-import { existsSync, unlinkSync } from "fs";
-import { join, basename } from "path";
+import { existsSync, unlinkSync, mkdirSync } from "fs";
+import { join, basename, dirname } from "path";
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const TMP_DIR = join(dirname(import.meta.path), "tmp");
+
+function ensureTmpDir(): void {
+  if (!existsSync(TMP_DIR)) {
+    mkdirSync(TMP_DIR, { recursive: true });
+  }
+}
 
 // ============================================================================
 // Types
@@ -185,14 +197,16 @@ async function downloadVideo(url: string, outputDir: string): Promise<string> {
 async function extractAudio(videoPath: string): Promise<string> {
   log("🎵", "Extracting and optimizing audio for Whisper...");
 
-  const audioPath = videoPath.replace(/\.[^.]+$/, "_whisper.opus");
+  // Use .webm container with opus audio (OpenAI API supports webm but not raw opus)
+  const audioPath = videoPath.replace(/\.[^.]+$/, "_whisper.webm");
 
   // Extract audio optimized for Whisper:
   // - Mono (Whisper doesn't need stereo)
   // - 16kHz sample rate (Whisper's native rate)
   // - Opus codec at 32kbps (excellent for speech)
   // - VoIP application mode (optimized for voice)
-  await $`ffmpeg -y -i ${videoPath} -vn -ac 1 -ar 16000 -c:a libopus -b:a 32k -application voip ${audioPath}`
+  // - WebM container (supported by OpenAI API)
+  await $`ffmpeg -y -i ${videoPath} -vn -ac 1 -ar 16000 -c:a libopus -b:a 32k -application voip -f webm ${audioPath}`
     .quiet();
 
   if (!existsSync(audioPath)) {
@@ -422,13 +436,14 @@ async function main(): Promise<void> {
   );
   console.log();
 
-  const outputDir = process.cwd();
+  // Ensure tmp directory exists for temporary files
+  ensureTmpDir();
 
   try {
-    // Step 1: Download video
-    const videoPath = await downloadVideo(youtubeUrl, outputDir);
+    // Step 1: Download video to tmp directory
+    const videoPath = await downloadVideo(youtubeUrl, TMP_DIR);
 
-    // Step 2: Extract audio
+    // Step 2: Extract audio to tmp directory
     const audioPath = await extractAudio(videoPath);
 
     // Step 3: Transcribe
