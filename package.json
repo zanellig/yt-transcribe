@@ -3,8 +3,12 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=26.5.0"
+  },
+  "scripts": {
+    "start": "node index.ts"
   },
   "peerDependencies": {
     "typescript": "^5"

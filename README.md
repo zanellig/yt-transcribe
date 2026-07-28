@@ -13,7 +13,7 @@ A CLI tool to download YouTube videos and transcribe them using OpenAI's Whisper
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) >= 1.0.0
+- [Node.js](https://nodejs.org/) 26.5.0 or newer
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - [ffmpeg](https://ffmpeg.org/)
 - OpenAI API key
@@ -28,19 +28,19 @@ export OPENAI_API_KEY="your-api-key-here"
 
 ```bash
 # Basic usage (defaults to gpt-4o-transcribe-diarize with diarized_json output)
-bun run index.ts https://www.youtube.com/watch?v=abc123
+node index.ts https://www.youtube.com/watch?v=abc123
 
 # Use a different model
-bun run index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1
+node index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1
 
 # Generate SRT subtitles
-bun run index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format srt
+node index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format srt
 
 # Plain text output
-bun run index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format text
+node index.ts https://www.youtube.com/watch?v=abc123 --model whisper-1 --format text
 
 # Custom output path
-bun run index.ts https://www.youtube.com/watch?v=abc123 -o transcript.json
+node index.ts https://www.youtube.com/watch?v=abc123 -o transcript.json
 ```
 
 ## Options
