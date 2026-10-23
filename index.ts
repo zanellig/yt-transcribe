@@ -1,27 +1,32 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * yt-transcribe - Download YouTube videos and transcribe with OpenAI Whisper
  *
  * Usage:
- *   bun run index.ts <youtube-url> [options]
+ *   node index.ts <youtube-url> [options]
  *
  * Examples:
- *   bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ
- *   bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format text
- *   bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --no-chunking
+ *   node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ
+ *   node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format text
+ *   node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --no-chunking
  */
 
-import { $ } from "bun";
-import { parseArgs } from "util";
-import { existsSync, unlinkSync, mkdirSync } from "fs";
-import { join, basename, dirname } from "path";
+import { execFile } from "node:child_process";
+import { existsSync, mkdirSync, openAsBlob, unlinkSync } from "node:fs";
+import { stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
+import { parseArgs } from "node:util";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const TMP_DIR = join(dirname(import.meta.path), "tmp");
-const OUT_DIR = join(dirname(import.meta.path), "out");
+const exec = promisify(execFile);
+const rootDir = dirname(fileURLToPath(import.meta.url));
+const TMP_DIR = join(rootDir, "tmp");
+const OUT_DIR = join(rootDir, "out");
 
 function ensureTmpDir(): void {
   if (!existsSync(TMP_DIR)) {
@@ -122,7 +127,7 @@ function printHelp(): void {
 \x1b[1myt-transcribe\x1b[0m - Download YouTube videos and transcribe with OpenAI Whisper
 
 \x1b[1mUSAGE:\x1b[0m
-  bun run index.ts <youtube-url> [options]
+  node index.ts <youtube-url> [options]
 
 \x1b[1mOPTIONS:\x1b[0m
   -m, --model <model>       Model to use for transcription (default: ${DEFAULT_MODEL})
@@ -151,16 +156,16 @@ function printHelp(): void {
 
 \x1b[1mEXAMPLES:\x1b[0m
   # Basic usage with defaults (diarized transcription)
-  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ
+  node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
   # Use whisper-1 with plain text output
-  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format text
+  node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format text
 
   # Generate SRT subtitles
-  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format srt
+  node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --model whisper-1 --format srt
 
   # Custom VAD settings for noisy audio
-  bun run index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --vad-threshold 0.7
+  node index.ts https://www.youtube.com/watch?v=dQw4w9WgXcQ --vad-threshold 0.7
 
 \x1b[1mENVIRONMENT:\x1b[0m
   OPENAI_API_KEY    Required. Your OpenAI API key.
@@ -184,14 +189,17 @@ async function downloadVideo(url: string, outputDir: string): Promise<string> {
   log("📥", "Downloading video from YouTube...");
 
   // Get video title first
-  const titleResult =
-    await $`yt-dlp --print filename -o "%(title)s" ${url}`.text();
+  const { stdout: titleResult } = await exec(
+    "yt-dlp",
+    ["--print", "filename", "-o", "%(title)s", url],
+    { maxBuffer: 1024 * 1024 },
+  );
   const title = titleResult.trim().replace(/[/\\?%*:|"<>]/g, "_");
 
   const outputPath = join(outputDir, `${title}.webm`);
 
   // Download the video
-  await $`yt-dlp -o ${outputPath} ${url}`.quiet();
+  await exec("yt-dlp", ["-o", outputPath, url]);
 
   if (!existsSync(outputPath)) {
     error(`Failed to download video to ${outputPath}`);
@@ -213,15 +221,32 @@ async function extractAudio(videoPath: string): Promise<string> {
   // - Opus codec at 32kbps (excellent for speech)
   // - VoIP application mode (optimized for voice)
   // - WebM container (supported by OpenAI API)
-  await $`ffmpeg -y -i ${videoPath} -vn -ac 1 -ar 16000 -c:a libopus -b:a 32k -application voip -f webm ${audioPath}`
-    .quiet();
+  await exec("ffmpeg", [
+    "-y",
+    "-i",
+    videoPath,
+    "-vn",
+    "-ac",
+    "1",
+    "-ar",
+    "16000",
+    "-c:a",
+    "libopus",
+    "-b:a",
+    "32k",
+    "-application",
+    "voip",
+    "-f",
+    "webm",
+    audioPath,
+  ]);
 
   if (!existsSync(audioPath)) {
     error(`Failed to extract audio to ${audioPath}`);
   }
 
-  const stats = Bun.file(audioPath);
-  const sizeMB = ((await stats.size) / 1024 / 1024).toFixed(2);
+  const stats = await stat(audioPath);
+  const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
   log("✅", `Extracted audio: ${basename(audioPath)} (${sizeMB} MB)`);
 
   return audioPath;
@@ -241,7 +266,7 @@ async function transcribe(
   const formData = new FormData();
 
   // Add the audio file
-  const audioFile = Bun.file(audioPath);
+  const audioFile = await openAsBlob(audioPath, { type: "audio/webm" });
   formData.append("file", audioFile, basename(audioPath));
 
   // Add required parameters
@@ -297,10 +322,18 @@ async function transcribe(
     return { text };
   }
 
-  const result = (await response.json()) as TranscriptionResponse;
+  const result: unknown = await response.json();
+  if (
+    !result ||
+    typeof result !== "object" ||
+    !("text" in result) ||
+    typeof result.text !== "string"
+  ) {
+    error("Transcription service returned an invalid response");
+  }
   log("✅", "Transcription complete!");
 
-  return result;
+  return result as TranscriptionResponse;
 }
 
 function getOutputExtension(format: ResponseFormat): string {
@@ -329,7 +362,7 @@ async function saveOutput(
     content = JSON.stringify(result, null, 2);
   }
 
-  await Bun.write(outputPath, content);
+  await writeFile(outputPath, content);
   log("💾", `Saved transcription to: ${outputPath}`);
 }
 
@@ -339,7 +372,7 @@ async function saveOutput(
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
-    args: Bun.argv.slice(2),
+    args: process.argv.slice(2),
     options: {
       model: { type: "string", short: "m", default: DEFAULT_MODEL },
       format: { type: "string", short: "f", default: DEFAULT_FORMAT },
